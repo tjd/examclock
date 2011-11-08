@@ -15,7 +15,7 @@
 #
 log = (msg) -> if console? then console.log(msg)
 
-format = (date) ->
+format = (date, include_seconds=false) ->
     hours = date.getHours()      # 0-23
     minutes = date.getMinutes()  # 0-59
     seconds = date.getSeconds()  # 0-59
@@ -25,12 +25,15 @@ format = (date) ->
                "12"
             else
                (hours % 12).toString()
-    m_str = (if minutes < 10 then "0" else "") + minutes.toString()
-    s_str = (if seconds < 10 then "0" else "") + seconds.toString()
+    m_str = ":" + (if minutes < 10 then "0" else "") + minutes.toString()
+    s_str = if include_seconds
+               ":" + (if seconds < 10 then "0" else "") + seconds.toString()
+            else
+               ""
 
-    return "#{h_str}:#{m_str}:#{s_str}#{am_pm}"
+    return "#{h_str}#{m_str}#{s_str}#{am_pm}"
 
-currentTimeString = -> format(new Date)
+currentTimeString = (include_seconds=false)-> format(new Date, include_seconds)
 
 
 millis_to_secs = (m) -> m / 1000
@@ -154,9 +157,9 @@ canvasApp = ->
     #
     big_msg =
         msg: ""
-        y: 225
+        y: 175
         font: "90px serif"
-        fillStyle: "blue"
+        color: "blue"
 
     #
     # progress bar info
@@ -168,19 +171,9 @@ canvasApp = ->
         height: 50
         strokeStyle: "black"
         lineWidth: 1
-        fillStyle: "red"
+        color: "red"
 
-    #
-    # sample exam
-    #
-#     exam = makeExam(1)
-#
-#     log("Start time: #{exam.time.start}")
-#     log("  End time: #{exam.time.end}")
-#     log("  Duration: #{exam.duration.minutes} minutes")
-#     log("  Duration: #{exam.duration.seconds} seconds")
-#     log("  Duration: #{exam.duration.hours} hours")
-#
+
     animationLoop = ->
         background(yellow)
 
@@ -189,31 +182,32 @@ canvasApp = ->
         #
         # start and end time
         #
-        putLabel("    Start " + format(exam.time.start), 1, 50, "30px serif")
-        putLabel("     End " + format(exam.time.end), 1, 80, "30px serif")
+        #putLabel("  Start at " + format(exam.time.start), 1, 50, "30px serif")
+        #putLabel("     End at " + format(exam.time.end), canvas.width - 300, 50, "30px serif")
 
         #
         # time remaining and current time
         #
         if exam.finished()
-            bar.fillStyle = "green"
+            bar.color = "green"
             big_msg.msg = "Exam is finished!"
-            big_msg.fillStyle = "green"
+            big_msg.color = "green"
         else if exam.remaining.minutes() <= 1
-            bar.fillStyle = "red"
+            bar.color = "red"
             big_msg.msg = exam.remaining.seconds() + " seconds left"
-            big_msg.fillStyle = "red"
+            big_msg.color = "red"
         else if exam.remaining.minutes() <= 10
-            bar.fillStyle = "orange"
+            bar.color = "orange"
             big_msg.msg = exam.remaining.minutes() + " minutes left"
-            big_msg.fillStyle = "orange"
+            big_msg.color = "orange"
         else
-            bar.fillStyle = "blue"
+            bar.color = "blue"
             big_msg.msg = exam.remaining.minutes() + " minutes left"
-            big_msg.fillStyle = "blue"
+            big_msg.color = "blue"
 
-        centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.fillStyle)
-        centerLabel(currentTimeString(), 260, "30px serif")
+        centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color)
+        centerLabel(currentTimeString(true), 210, "30px serif")
+        centerLabel("Start at #{format(exam.time.start)}                                            End at #{format(exam.time.end)}", 290, "30px serif")
 
         #
         # progress bar
@@ -222,7 +216,7 @@ canvasApp = ->
         context.lineWidth = bar.lineWidth
         context.strokeRect(bar.x, bar.y, bar.width, bar.height)
 
-        context.fillStyle = bar.fillStyle
+        context.fillStyle = bar.color
 
         # w is the width of the progress bar
         erm = exam.remaining.millis()
