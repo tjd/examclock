@@ -5,19 +5,25 @@
       return console.log(msg);
     }
   };
-  format = function(date) {
+  format = function(date, include_seconds) {
     var am_pm, h_str, hours, m_str, minutes, s_str, seconds;
+    if (include_seconds == null) {
+      include_seconds = false;
+    }
     hours = date.getHours();
     minutes = date.getMinutes();
     seconds = date.getSeconds();
     am_pm = hours < 12 ? "am" : "pm";
     h_str = hours % 12 === 0 ? "12" : (hours % 12).toString();
-    m_str = (minutes < 10 ? "0" : "") + minutes.toString();
-    s_str = (seconds < 10 ? "0" : "") + seconds.toString();
-    return "" + h_str + ":" + m_str + ":" + s_str + am_pm;
+    m_str = ":" + (minutes < 10 ? "0" : "") + minutes.toString();
+    s_str = include_seconds ? ":" + (seconds < 10 ? "0" : "") + seconds.toString() : "";
+    return "" + h_str + m_str + s_str + am_pm;
   };
-  currentTimeString = function() {
-    return format(new Date);
+  currentTimeString = function(include_seconds) {
+    if (include_seconds == null) {
+      include_seconds = false;
+    }
+    return format(new Date, include_seconds);
   };
   millis_to_secs = function(m) {
     return m / 1000;
@@ -154,9 +160,9 @@
     };
     big_msg = {
       msg: "",
-      y: 225,
+      y: 175,
       font: "90px serif",
-      fillStyle: "blue"
+      color: "blue"
     };
     bar = {
       x: 30,
@@ -165,7 +171,7 @@
       height: 50,
       strokeStyle: "black",
       lineWidth: 1,
-      fillStyle: "red"
+      color: "red"
     };
     animationLoop = function() {
       var erm, pct, pct_msg, pct_msg_width, w;
@@ -173,31 +179,30 @@
       if (!running) {
         return;
       }
-      putLabel("    Start " + format(exam.time.start), 1, 50, "30px serif");
-      putLabel("     End " + format(exam.time.end), 1, 80, "30px serif");
       if (exam.finished()) {
-        bar.fillStyle = "green";
+        bar.color = "green";
         big_msg.msg = "Exam is finished!";
-        big_msg.fillStyle = "green";
+        big_msg.color = "green";
       } else if (exam.remaining.minutes() <= 1) {
-        bar.fillStyle = "red";
+        bar.color = "red";
         big_msg.msg = exam.remaining.seconds() + " seconds left";
-        big_msg.fillStyle = "red";
+        big_msg.color = "red";
       } else if (exam.remaining.minutes() <= 10) {
-        bar.fillStyle = "orange";
+        bar.color = "orange";
         big_msg.msg = exam.remaining.minutes() + " minutes left";
-        big_msg.fillStyle = "orange";
+        big_msg.color = "orange";
       } else {
-        bar.fillStyle = "blue";
+        bar.color = "blue";
         big_msg.msg = exam.remaining.minutes() + " minutes left";
-        big_msg.fillStyle = "blue";
+        big_msg.color = "blue";
       }
-      centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.fillStyle);
-      centerLabel(currentTimeString(), 260, "30px serif");
+      centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color);
+      centerLabel(currentTimeString(true), 210, "30px serif");
+      centerLabel("Start at " + (format(exam.time.start)) + "                                            End at " + (format(exam.time.end)), 290, "30px serif");
       context.strokeStyle = bar.strokeStyle;
       context.lineWidth = bar.lineWidth;
       context.strokeRect(bar.x, bar.y, bar.width, bar.height);
-      context.fillStyle = bar.fillStyle;
+      context.fillStyle = bar.color;
       erm = exam.remaining.millis();
       w = constrained_map(erm, exam.duration.millis, 0, 0, bar.width);
       context.fillRect(bar.x, bar.y, w, bar.height);
