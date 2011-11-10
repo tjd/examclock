@@ -236,7 +236,7 @@
       color: "red",
       set_msg: function() {
         this.start_msg = new Label("Start at " + (format(exam.time.start)), bar.x, bar.y - 10);
-        this.end_msg = new Label("End at " + (format(exam.time.start)), -1, bar.y - 10);
+        this.end_msg = new Label("End at " + (format(exam.time.end)), -1, bar.y - 10);
         return this.end_msg.x = this.width - this.end_msg.getWidthInPixels() + 25;
       },
       start_msg: "<start_msg>",

@@ -242,7 +242,7 @@ canvasApp = ->
         color: "red"
         set_msg: ->
             @start_msg = new Label("Start at #{format(exam.time.start)}", bar.x, bar.y - 10)
-            @end_msg = new Label("End at #{format(exam.time.start)}", -1, bar.y - 10)
+            @end_msg = new Label("End at #{format(exam.time.end)}", -1, bar.y - 10)
             @end_msg.x = @width - @end_msg.getWidthInPixels() + 25
         start_msg: "<start_msg>"
         end_msg: "<end_msg>"
