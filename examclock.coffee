@@ -13,8 +13,49 @@
 # Firefox does not have a console object by default.
 # If you install Firebug, however, you will get one. So do that.
 #
-log = (msg) -> if console? then console.log(msg)
+log = (msg) -> console.log(msg) if console?
 
+# includes endpoints: both lo and hi could be returned
+randIntBetween = (lo, hi) -> Math.floor(Math.random() * (hi - lo + 1) + lo)
+
+# return a random element of an array
+Array.prototype.rand_choice = -> this[randIntBetween(0, this.length - 1)]
+
+#
+# yellow is a nice color
+#
+yellow = "#ffffaa"
+
+#
+# animation frame rate
+#
+frame_rate = 30
+
+#
+# proportionally map x from range [a, b] to range [c, d]
+#
+map = (x, a, b, c, d) -> c + (d - c) * (x - a) / (b - a)
+
+#
+# ensure x is in the range [lo, hi]
+#
+constrain = (x, lo, hi) ->
+    if x < lo
+        lo
+    else if x > hi
+        hi
+    else
+        x
+
+#
+# proportionally map x from range [a, b] to range [c, d],
+# and always return a value in [c, d]
+#
+constrained_map = (x, a, b, c, d) -> constrain(map(x, a, b, c, d), c, d)
+
+#
+# simple time formatting
+#
 format = (date, include_seconds=false) ->
     hours = date.getHours()      # 0-23
     minutes = date.getMinutes()  # 0-59
@@ -33,13 +74,8 @@ format = (date, include_seconds=false) ->
 
     return "#{h_str}#{m_str}#{s_str}#{am_pm}"
 
-currentTimeString = (include_seconds=false)-> format(new Date, include_seconds)
+currentTimeString = (include_seconds=false) -> format(new Date, include_seconds)
 
-
-millis_to_secs = (m) -> m / 1000
-millis_to_mins = (m) -> (m / 1000) / 60
-
-secs_to_millis = (s) -> 1000 * s
 mins_to_millis = (m) -> 60 * m * 1000
 
 makeExam = (dur_in_min) ->
@@ -76,12 +112,6 @@ canvasApp = ->
         return
 
     #
-    # global variables
-    #
-    frame_rate = 30
-    yellow = "#ffffaa"
-
-    #
     # get the canvas and its context
     #
     canvas = document.getElementById("canvasOne")
@@ -90,7 +120,6 @@ canvasApp = ->
     exam = null
     running = false
     start_button_click = ->
-        log("start button clicked!")
         if isNaN(dur_input.value) or dur_input.value == ""
             alert("Please enter duration in minutes.")
         else
@@ -98,7 +127,6 @@ canvasApp = ->
             exam = makeExam(parseInt(dur_input.value))
             start_button.style.visibility = "hidden"
             dur_span.style.visibility = "hidden"
-
 
     start_button = document.getElementById("startbutton")
     start_button.onclick = start_button_click
@@ -112,28 +140,6 @@ canvasApp = ->
     background = (color) ->
         context.fillStyle = color
         context.fillRect(0, 0, canvas.width, canvas.height)
-
-    #
-    # proportionally map x from range [a, b] to range [c, d]
-    #
-    map = (x, a, b, c, d) -> c + (d - c) * (x - a) / (b - a)
-
-    #
-    # ensure x is in the range [lo, hi]
-    #
-    constrain = (x, lo, hi) ->
-        if x < lo
-            lo
-        else if x > hi
-            hi
-        else
-            x
-
-    #
-    # proportionally map x from range [a, b] to range [c, d],
-    # and always return a value in [c, d]
-    #
-    constrained_map = (x, a, b, c, d) -> constrain(map(x, a, b, c, d), c, d)
 
     # putLabel is a simple way to put text on the screen
     # with minimum effort
@@ -173,25 +179,95 @@ canvasApp = ->
         lineWidth: 1
         color: "red"
 
+    #
+    # text scroll
+    #
+    scroll =
+        x: 0
+        y: 0
+        dx: 0
+        dy: 0
+        last_change: (new Date).getTime()
+        sit_time: 30 * 1000  # milliseconds
+        hide_time: 5 * 1000
+        state: "hiding"
+        possible_states: [
+            "finished"
+            "descending"
+            "ascending"
+            "sitting"
+            "hiding"
+            ]
+        draw: -> centerLabel(@msg, @y) unless @state == "hiding"
+        update: ->
+            now = (new Date).getTime()
+            t = now - @last_change
+            switch @state
+                when "finished"
+                    @dx = 0
+                    @dy = 0
+                    @y = 50
+                    @msg = "Hand in your exam!"
+                when "sitting"
+                    @dx = 0
+                    @dy = 0
+                    if t > @sit_time
+                        @state = "ascending"
+                        @last_change = now
+                when "hiding"
+                    @dx = 0
+                    @dy = 0
+                    if t > @hide_time
+                        @state = "descending"
+                        @last_change = now
+                        @msg = @messages.rand_choice()
+                when "descending"
+                    @dx = 0
+                    @dy = 1
+                    if @y >= 50
+                        @y = 50
+                        @state = "sitting"
+                        @last_change = now
+                when "ascending"
+                    @dx = 0
+                    @dy = -1
+                    if @y <= 0
+                        @y = 0
+                        @state = "hiding"
+                        @last_change = now
+
+            @x += @dx
+            @y += @dy
+
+        msg: "<msg>"
+        reset: ->
+            @msg = @messages.rand_choice()
+            @x = canvas.width + 10
+            @y = 50
+        messages: [
+            "Put your name and SFU student ID # on each page."
+            "Raise your hand if you have a question or need to use the washroom."
+            "Read the questions carefully."
+            "Double-check your answers if you have time."
+            "Have mercy on your marker: write neatly!"
+            "Pay attention to the details."
+            "Relax. Stay calm. Chill."
+            "Think!"
+            ]
 
     animationLoop = ->
         background(yellow)
 
-        if not running then return
+        return if not running
 
         #
-        # start and end time
-        #
-        #putLabel("  Start at " + format(exam.time.start), 1, 50, "30px serif")
-        #putLabel("     End at " + format(exam.time.end), canvas.width - 300, 50, "30px serif")
-
-        #
-        # time remaining and current time
+        # set colors and messages based on time remaining
         #
         if exam.finished()
             bar.color = "green"
             big_msg.msg = "Exam is finished!"
             big_msg.color = "green"
+            scroll.state = "finished"
         else if exam.remaining.minutes() <= 1
             bar.color = "red"
             big_msg.msg = exam.remaining.seconds() + " seconds left"
@@ -205,9 +281,11 @@ canvasApp = ->
             big_msg.msg = exam.remaining.minutes() + " minutes left"
             big_msg.color = "blue"
 
+        #
+        # draw the time remaining, current time, and start/end time labels
         centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color)
         centerLabel(currentTimeString(true), 210, "30px serif")
-        centerLabel("Start at #{format(exam.time.start)}                                            End at #{format(exam.time.end)}", 290, "30px serif")
+        centerLabel("Start at #{format(exam.time.start)}                                              End at #{format(exam.time.end)}", 290, "30px serif")
 
         #
         # progress bar
@@ -219,16 +297,21 @@ canvasApp = ->
         context.fillStyle = bar.color
 
         # w is the width of the progress bar
-        erm = exam.remaining.millis()
-        w = constrained_map(erm, exam.duration.millis, 0, 0, bar.width)
+        millis_left = exam.remaining.millis()
+        w = constrained_map(millis_left, exam.duration.millis, 0, 0, bar.width)
         context.fillRect(bar.x, bar.y, w, bar.height)
 
         # calculate and display the % completed
-        pct = constrained_map(erm, exam.duration.millis, 0, 0, 100)
+        pct = constrained_map(millis_left, exam.duration.millis, 0, 0, 100)
         pct_msg = Math.floor(pct) + "% done"
         pct_msg_width = context.measureText(pct_msg).width
         putLabel(pct_msg, constrain(w, bar.x, canvas.width - (pct_msg_width + 3)), bar.y + 75)
 
+        #
+        # scroll bar
+        #
+        scroll.draw()
+        scroll.update()
 
     #
     # call animationLoop once every (1000 / frame_rate) milliseconds
