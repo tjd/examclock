@@ -87,7 +87,7 @@
     return exam;
   };
   canvasApp = function() {
-    var animationLoop, background, bar, big_msg, canvas, centerLabel, context, dur_input, dur_span, exam, putLabel, running, scroll, setup, start_button, start_button_click;
+    var Label, animationLoop, background, bar, big_msg, canvas, centerLabel, context, dur_input, dur_span, exam, putLabel, running, scroll, setup, start_button, start_button_click, window_resize;
     if (Modernizr.canvas) {
       log("canvas is supported");
     } else {
@@ -96,6 +96,10 @@
     }
     canvas = document.getElementById("canvasOne");
     context = canvas.getContext("2d");
+    log("window dimensions: (" + window.innerWidth + ", " + window.innerHeight + ")");
+    canvas.width = 0.98 * window.innerWidth;
+    canvas.height = 400;
+    log("canvas dimensions: (" + canvas.width + ", " + canvas.height + ")");
     exam = null;
     running = false;
     start_button_click = function() {
@@ -104,6 +108,7 @@
       } else {
         running = true;
         exam = makeExam(parseInt(dur_input.value));
+        bar.set_msg();
         start_button.style.visibility = "hidden";
         return dur_span.style.visibility = "hidden";
       }
@@ -113,10 +118,66 @@
     dur_input = document.getElementById("dur_in_min");
     dur_input.value = 180;
     dur_span = document.getElementById("dur_span");
+    window_resize = function() {
+      canvas.width = 0.98 * window.innerWidth;
+      return bar.resize();
+    };
+    window.addEventListener("resize", window_resize, false);
     background = function(color) {
       context.fillStyle = color;
       return context.fillRect(0, 0, canvas.width, canvas.height);
     };
+    Label = (function() {
+      function Label(msg, x, y, style, font, visible) {
+        this.msg = msg != null ? msg : "<label>";
+        this.x = x != null ? x : 0;
+        this.y = y != null ? y : 0;
+        this.style = style != null ? style : 'black';
+        this.font = font != null ? font : '25px serif';
+        this.visible = visible != null ? visible : true;
+      }
+      Label.prototype.getWidthInPixels = function() {
+        var w;
+        context.save();
+        context.font = this.font;
+        context.fillStyle = this.style;
+        w = context.measureText(this.msg).width;
+        context.restore();
+        return w;
+      };
+      Label.prototype.lowercaseMwidth = function() {
+        var w;
+        context.save();
+        context.font = this.font;
+        context.fillStyle = this.style;
+        w = context.measureText("m").width;
+        context.restore();
+        return w;
+      };
+      Label.prototype.uppercaseMwidth = function() {
+        var w;
+        context.save();
+        context.font = this.font;
+        context.fillStyle = this.style;
+        w = context.measureText("M").width;
+        context.restore();
+        return w;
+      };
+      Label.prototype.getHeightInPixels = function() {
+        return this.lowercaseMwidth();
+      };
+      Label.prototype.render = function() {
+        if (!this.visible) {
+          return;
+        }
+        context.save();
+        context.font = this.font;
+        context.fillStyle = this.style;
+        context.fillText(this.msg, this.x, this.y);
+        return context.restore();
+      };
+      return Label;
+    })();
     putLabel = function(msg, x, y, font, style) {
       if (x == null) {
         x = 25;
@@ -165,9 +226,21 @@
       y: 300,
       width: canvas.width - 60,
       height: 50,
+      resize: function() {
+        this.width = canvas.width - 60;
+        this.height = 50;
+        return this.set_msg();
+      },
       strokeStyle: "black",
       lineWidth: 1,
-      color: "red"
+      color: "red",
+      set_msg: function() {
+        this.start_msg = new Label("Start at " + (format(exam.time.start)), bar.x, bar.y - 10);
+        this.end_msg = new Label("End at " + (format(exam.time.start)), -1, bar.y - 10);
+        return this.end_msg.x = this.width - this.end_msg.getWidthInPixels() + 25;
+      },
+      start_msg: "<start_msg>",
+      end_msg: "<end_msg>"
     };
     scroll = {
       x: 0,
@@ -267,7 +340,8 @@
       }
       centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color);
       centerLabel(currentTimeString(true), 210, "30px serif");
-      centerLabel("Start at " + (format(exam.time.start)) + "                                              End at " + (format(exam.time.end)), 290, "30px serif");
+      bar.start_msg.render();
+      bar.end_msg.render();
       context.strokeStyle = bar.strokeStyle;
       context.lineWidth = bar.lineWidth;
       context.strokeRect(bar.x, bar.y, bar.width, bar.height);

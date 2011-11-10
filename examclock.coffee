@@ -117,6 +117,14 @@ canvasApp = ->
     canvas = document.getElementById("canvasOne")
     context = canvas.getContext("2d")
 
+    log("window dimensions: (#{window.innerWidth}, #{window.innerHeight})")
+    canvas.width = 0.98 * window.innerWidth
+    canvas.height = 400 # 0.50 * window.innerHeight
+    log("canvas dimensions: (#{canvas.width}, #{canvas.height})")
+
+    #
+    # set event handlers and other variables
+    #
     exam = null
     running = false
     start_button_click = ->
@@ -125,14 +133,23 @@ canvasApp = ->
         else
             running = true
             exam = makeExam(parseInt(dur_input.value))
+            bar.set_msg()
             start_button.style.visibility = "hidden"
             dur_span.style.visibility = "hidden"
 
     start_button = document.getElementById("startbutton")
     start_button.onclick = start_button_click
+
     dur_input = document.getElementById("dur_in_min")
     dur_input.value = 180
     dur_span = document.getElementById("dur_span")
+
+    window_resize = ->
+        canvas.width = 0.98 * window.innerWidth
+        bar.resize()
+        # Apparently Chrome does not support window.resizeTo or window.resizeBy
+
+    window.addEventListener("resize", window_resize, false)
 
     #
     # helper functions
@@ -140,6 +157,47 @@ canvasApp = ->
     background = (color) ->
         context.fillStyle = color
         context.fillRect(0, 0, canvas.width, canvas.height)
+
+    #
+    # the Label class represents a piece of text
+    #
+    class Label
+        constructor: (@msg="<label>", @x=0, @y=0, @style='black', @font='25px serif', @visible=true) ->
+
+        getWidthInPixels: ->
+            context.save()
+            context.font = @font
+            context.fillStyle = @style
+            w = context.measureText(@msg).width
+            context.restore()
+            return w
+
+        lowercaseMwidth: ->
+            context.save()
+            context.font = @font
+            context.fillStyle = @style
+            w = context.measureText("m").width
+            context.restore()
+            return w
+
+        uppercaseMwidth: ->
+            context.save()
+            context.font = @font
+            context.fillStyle = @style
+            w = context.measureText("M").width
+            context.restore()
+            return w
+
+        getHeightInPixels: -> @lowercaseMwidth()
+
+        render: ->
+            if not @visible then return
+            context.save()
+            context.font = @font
+            context.fillStyle = @style
+            context.fillText(@msg, @x, @y)
+            context.restore()
+
 
     # putLabel is a simple way to put text on the screen
     # with minimum effort
@@ -175,9 +233,19 @@ canvasApp = ->
         y: 300
         width: canvas.width - 60
         height: 50
+        resize: ->
+            @width = canvas.width - 60
+            @height = 50
+            @set_msg()
         strokeStyle: "black"
         lineWidth: 1
         color: "red"
+        set_msg: ->
+            @start_msg = new Label("Start at #{format(exam.time.start)}", bar.x, bar.y - 10)
+            @end_msg = new Label("End at #{format(exam.time.start)}", -1, bar.y - 10)
+            @end_msg.x = @width - @end_msg.getWidthInPixels() + 25
+        start_msg: "<start_msg>"
+        end_msg: "<end_msg>"
 
     #
     # text scroll
@@ -255,6 +323,7 @@ canvasApp = ->
             "Think!"
             ]
 
+
     animationLoop = ->
         background(yellow)
 
@@ -283,9 +352,11 @@ canvasApp = ->
 
         #
         # draw the time remaining, current time, and start/end time labels
+        #
         centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color)
         centerLabel(currentTimeString(true), 210, "30px serif")
-        centerLabel("Start at #{format(exam.time.start)}                                              End at #{format(exam.time.end)}", 290, "30px serif")
+        bar.start_msg.render()
+        bar.end_msg.render()
 
         #
         # progress bar
