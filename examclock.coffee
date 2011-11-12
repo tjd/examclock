@@ -227,6 +227,8 @@ canvasApp = ->
         context.fillStyle = color
         context.fillRect(0, 0, canvas.width, canvas.height)
 
+    background(yellow)
+
     #
     # large message text info
     #
@@ -337,7 +339,6 @@ canvasApp = ->
 
     animationLoop = ->
         background(yellow)
-
         #
         # set colors and messages based on time remaining
         #

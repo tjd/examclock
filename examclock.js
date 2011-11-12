@@ -220,6 +220,7 @@
       context.fillStyle = color;
       return context.fillRect(0, 0, canvas.width, canvas.height);
     };
+    background(yellow);
     big_msg = {
       msg: "",
       y: 175,
