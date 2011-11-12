@@ -1,5 +1,5 @@
 (function() {
-  var canvasApp, constrain, constrained_map, currentTimeString, curry_fn, def, eventWindowLoaded, frame_rate, log, makeExam, map, mins_to_millis, randIntBetween, raw_label, yellow;
+  var canvasApp, constrain, constrained_map, currentTimeString, curry_fn, eventWindowLoaded, frame_rate, log, makeExam, map, mins_to_millis, randIntBetween, raw_label, yellow;
   log = function(msg) {
     if (typeof console !== "undefined" && console !== null) {
       return console.log(msg);
@@ -99,13 +99,6 @@
       }
     };
     return exam;
-  };
-  def = function(vble, val) {
-    if (vble != null) {
-      return vble;
-    } else {
-      return val;
-    }
   };
   raw_label = function(context, canvas) {
     return {

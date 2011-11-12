@@ -122,8 +122,6 @@ makeExam = (dur_in_min) ->
 
     return exam
 
-def = (vble, val) -> if vble? then vble else val
-
 raw_label = (context, canvas) ->
     make: (obj) ->
         lbl =
