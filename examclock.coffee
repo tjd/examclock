@@ -15,6 +15,28 @@
 #
 log = (msg) -> console.log(msg) if console?
 
+#
+# From JavaScript: The Good Parts
+#
+Function.prototype.add_method = (name, fn) ->
+    @prototype[name] = fn
+    return this
+
+#
+# Adds function currying, e.g.
+#
+#    add1 = add.curry(1)
+#    log(add1(6))  # 7
+#
+curry_fn = ->
+    slice = Array.prototype.slice
+    args = slice.apply(arguments)
+    that = this
+    return ->
+        that.apply(null, args.concat(slice.apply(arguments)))
+
+Function.add_method('curry', curry_fn)
+
 # includes endpoints: both lo and hi could be returned
 randIntBetween = (lo, hi) -> Math.floor(Math.random() * (hi - lo + 1) + lo)
 
@@ -56,10 +78,10 @@ constrained_map = (x, a, b, c, d) -> constrain(map(x, a, b, c, d), c, d)
 #
 # simple time formatting
 #
-format = (date, include_seconds=false) ->
-    hours = date.getHours()      # 0-23
-    minutes = date.getMinutes()  # 0-59
-    seconds = date.getSeconds()  # 0-59
+Date.prototype.format = (include_seconds=false) ->
+    hours = @getHours()      # 0-23
+    minutes = @getMinutes()  # 0-59
+    seconds = @getSeconds()  # 0-59
 
     am_pm = if hours < 12 then "am" else "pm"
     h_str = if hours % 12 == 0
@@ -74,12 +96,12 @@ format = (date, include_seconds=false) ->
 
     return "#{h_str}#{m_str}#{s_str}#{am_pm}"
 
-currentTimeString = (include_seconds=false) -> format(new Date, include_seconds)
+currentTimeString = (include_seconds=false) -> (new Date).format(include_seconds)
 
 mins_to_millis = (m) -> 60 * m * 1000
 
 makeExam = (dur_in_min) ->
-    now = new Date()
+    now = new Date
     future = new Date(now.getTime() + mins_to_millis(dur_in_min))
     exam =
         time:
@@ -100,6 +122,50 @@ makeExam = (dur_in_min) ->
 
     return exam
 
+raw_label = (context, canvas) ->
+    make: (obj) ->
+        lbl =
+            context: context
+            msg: obj.msg ? "<label_msg>"
+            x: obj.x ? 100
+            y: obj.y ? 100
+            style: obj.style ? "black"
+            font: obj.font ? "25px serif"
+            visible: obj.visible ? true
+            getWidthInPixels: ->
+                @context.save()
+                @context.font = @font
+                @context.fillStyle = @style
+                w = @context.measureText(@msg).width
+                @context.restore()
+                return w
+            uppercaseMwidth: ->
+                @context.save()
+                @context.font = @font
+                @context.fillStyle = @style
+                w = @context.measureText("M").width
+                @context.restore()
+                return w
+            getHeightInPixels: -> @lowercaseMwidth()
+            render: ->
+                return if not @visible
+                @context.save()
+                @context.font = @font
+                @context.fillStyle = @style
+                @context.fillText(@msg, @x, @y)
+                @context.restore()
+
+    put: (msg, x=25, y=25, font='25px serif', style='black') ->
+        context.font = font
+        context.fillStyle = style
+        context.fillText(msg, x, y)
+
+    center: (msg, y=25, font='25px serif', style='black') ->
+        context.font = font
+        context.fillStyle = style
+        dim = context.measureText(msg)
+        x = (canvas.width - dim.width) / 2
+        context.fillText(msg, x, y)
 
 canvasApp = ->
     #
@@ -117,25 +183,29 @@ canvasApp = ->
     canvas = document.getElementById("canvasOne")
     context = canvas.getContext("2d")
 
-    log("window dimensions: (#{window.innerWidth}, #{window.innerHeight})")
     canvas.width = 0.98 * window.innerWidth
-    canvas.height = 400 # 0.50 * window.innerHeight
-    log("canvas dimensions: (#{canvas.width}, #{canvas.height})")
+    canvas.height = 400
+
+    #
+    # make the label object
+    #
+    label = raw_label(context, canvas)
 
     #
     # set event handlers and other variables
     #
     exam = null
-    running = false
     start_button_click = ->
         if isNaN(dur_input.value) or dur_input.value == ""
             alert("Please enter duration in minutes.")
         else
-            running = true
-            exam = makeExam(parseInt(dur_input.value))
+            exam = makeExam(parseInt(dur_input.value, 10))
             bar.set_msg()
             start_button.style.visibility = "hidden"
             dur_span.style.visibility = "hidden"
+
+            # start the animation loop
+            setInterval(animationLoop, 1000 / frame_rate)
 
     start_button = document.getElementById("startbutton")
     start_button.onclick = start_button_click
@@ -148,7 +218,6 @@ canvasApp = ->
         canvas.width = 0.98 * window.innerWidth
         bar.resize()
         # Apparently Chrome does not support window.resizeTo or window.resizeBy
-
     window.addEventListener("resize", window_resize, false)
 
     #
@@ -158,63 +227,7 @@ canvasApp = ->
         context.fillStyle = color
         context.fillRect(0, 0, canvas.width, canvas.height)
 
-    #
-    # the Label class represents a piece of text
-    #
-    class Label
-        constructor: (@msg="<label>", @x=0, @y=0, @style='black', @font='25px serif', @visible=true) ->
-
-        getWidthInPixels: ->
-            context.save()
-            context.font = @font
-            context.fillStyle = @style
-            w = context.measureText(@msg).width
-            context.restore()
-            return w
-
-        lowercaseMwidth: ->
-            context.save()
-            context.font = @font
-            context.fillStyle = @style
-            w = context.measureText("m").width
-            context.restore()
-            return w
-
-        uppercaseMwidth: ->
-            context.save()
-            context.font = @font
-            context.fillStyle = @style
-            w = context.measureText("M").width
-            context.restore()
-            return w
-
-        getHeightInPixels: -> @lowercaseMwidth()
-
-        render: ->
-            if not @visible then return
-            context.save()
-            context.font = @font
-            context.fillStyle = @style
-            context.fillText(@msg, @x, @y)
-            context.restore()
-
-
-    # putLabel is a simple way to put text on the screen
-    # with minimum effort
-    putLabel = (msg, x=25, y=25, font='25px serif', style='black') ->
-        context.font = font
-        context.fillStyle = style
-        context.fillText(msg, x, y)
-
-    centerLabel = (msg, y=25, font='25px serif', style='black') ->
-        context.font = font
-        context.fillStyle = style
-        dim = context.measureText(msg)
-        x = (canvas.width - dim.width) / 2
-        context.fillText(msg, x, y)
-
-    setup = ->
-        background(yellow)
+    background(yellow)
 
     #
     # large message text info
@@ -241,8 +254,8 @@ canvasApp = ->
         lineWidth: 1
         color: "red"
         set_msg: ->
-            @start_msg = new Label("Start at #{format(exam.time.start)}", bar.x, bar.y - 10)
-            @end_msg = new Label("End at #{format(exam.time.end)}", -1, bar.y - 10)
+            @start_msg = label.make({msg: "Start at #{exam.time.start.format()}", x: bar.x, y: bar.y - 10})
+            @end_msg = label.make({msg: "End at #{exam.time.end.format()}", x: -1, y: bar.y - 10})
             @end_msg.x = @width - @end_msg.getWidthInPixels() + 25
         start_msg: "<start_msg>"
         end_msg: "<end_msg>"
@@ -266,7 +279,7 @@ canvasApp = ->
             "sitting"
             "hiding"
             ]
-        draw: -> centerLabel(@msg, @y) unless @state == "hiding"
+        draw: -> label.center(@msg, @y) unless @state == "hiding"
         update: ->
             now = (new Date).getTime()
             t = now - @last_change
@@ -326,9 +339,6 @@ canvasApp = ->
 
     animationLoop = ->
         background(yellow)
-
-        return if not running
-
         #
         # set colors and messages based on time remaining
         #
@@ -353,8 +363,8 @@ canvasApp = ->
         #
         # draw the time remaining, current time, and start/end time labels
         #
-        centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color)
-        centerLabel(currentTimeString(true), 210, "30px serif")
+        label.center(big_msg.msg, big_msg.y, big_msg.font, big_msg.color)
+        label.center(currentTimeString(true), 210, "30px serif")
         bar.start_msg.render()
         bar.end_msg.render()
 
@@ -376,19 +386,13 @@ canvasApp = ->
         pct = constrained_map(millis_left, exam.duration.millis, 0, 0, 100)
         pct_msg = Math.floor(pct) + "% done"
         pct_msg_width = context.measureText(pct_msg).width
-        putLabel(pct_msg, constrain(w, bar.x, canvas.width - (pct_msg_width + 3)), bar.y + 75)
+        label.put(pct_msg, constrain(w, bar.x, canvas.width - (pct_msg_width + 3)), bar.y + 75)
 
         #
         # scroll bar
         #
         scroll.draw()
         scroll.update()
-
-    #
-    # call animationLoop once every (1000 / frame_rate) milliseconds
-    #
-    setup()
-    setInterval(animationLoop, 1000 / frame_rate)
 
 
 #
