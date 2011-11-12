@@ -1,10 +1,24 @@
 (function() {
-  var canvasApp, constrain, constrained_map, currentTimeString, eventWindowLoaded, format, frame_rate, log, makeExam, map, mins_to_millis, randIntBetween, yellow;
+  var canvasApp, constrain, constrained_map, currentTimeString, curry_fn, def, eventWindowLoaded, frame_rate, log, makeExam, map, mins_to_millis, randIntBetween, raw_label, yellow;
   log = function(msg) {
     if (typeof console !== "undefined" && console !== null) {
       return console.log(msg);
     }
   };
+  Function.prototype.add_method = function(name, fn) {
+    this.prototype[name] = fn;
+    return this;
+  };
+  curry_fn = function() {
+    var args, slice, that;
+    slice = Array.prototype.slice;
+    args = slice.apply(arguments);
+    that = this;
+    return function() {
+      return that.apply(null, args.concat(slice.apply(arguments)));
+    };
+  };
+  Function.add_method('curry', curry_fn);
   randIntBetween = function(lo, hi) {
     return Math.floor(Math.random() * (hi - lo + 1) + lo);
   };
@@ -28,14 +42,14 @@
   constrained_map = function(x, a, b, c, d) {
     return constrain(map(x, a, b, c, d), c, d);
   };
-  format = function(date, include_seconds) {
+  Date.prototype.format = function(include_seconds) {
     var am_pm, h_str, hours, m_str, minutes, s_str, seconds;
     if (include_seconds == null) {
       include_seconds = false;
     }
-    hours = date.getHours();
-    minutes = date.getMinutes();
-    seconds = date.getSeconds();
+    hours = this.getHours();
+    minutes = this.getMinutes();
+    seconds = this.getSeconds();
     am_pm = hours < 12 ? "am" : "pm";
     h_str = hours % 12 === 0 ? "12" : (hours % 12).toString();
     m_str = ":" + (minutes < 10 ? "0" : "") + minutes.toString();
@@ -46,14 +60,14 @@
     if (include_seconds == null) {
       include_seconds = false;
     }
-    return format(new Date, include_seconds);
+    return (new Date).format(include_seconds);
   };
   mins_to_millis = function(m) {
     return 60 * m * 1000;
   };
   makeExam = function(dur_in_min) {
     var exam, future, now;
-    now = new Date();
+    now = new Date;
     future = new Date(now.getTime() + mins_to_millis(dur_in_min));
     exam = {
       time: {
@@ -86,8 +100,96 @@
     };
     return exam;
   };
+  def = function(vble, val) {
+    if (vble != null) {
+      return vble;
+    } else {
+      return val;
+    }
+  };
+  raw_label = function(context, canvas) {
+    return {
+      make: function(obj) {
+        var lbl, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
+        return lbl = {
+          context: context,
+          msg: (_ref = obj.msg) != null ? _ref : "<label_msg>",
+          x: (_ref2 = obj.x) != null ? _ref2 : 100,
+          y: (_ref3 = obj.y) != null ? _ref3 : 100,
+          style: (_ref4 = obj.style) != null ? _ref4 : "black",
+          font: (_ref5 = obj.font) != null ? _ref5 : "25px serif",
+          visible: (_ref6 = obj.visible) != null ? _ref6 : true,
+          getWidthInPixels: function() {
+            var w;
+            this.context.save();
+            this.context.font = this.font;
+            this.context.fillStyle = this.style;
+            w = this.context.measureText(this.msg).width;
+            this.context.restore();
+            return w;
+          },
+          uppercaseMwidth: function() {
+            var w;
+            this.context.save();
+            this.context.font = this.font;
+            this.context.fillStyle = this.style;
+            w = this.context.measureText("M").width;
+            this.context.restore();
+            return w;
+          },
+          getHeightInPixels: function() {
+            return this.lowercaseMwidth();
+          },
+          render: function() {
+            if (!this.visible) {
+              return;
+            }
+            this.context.save();
+            this.context.font = this.font;
+            this.context.fillStyle = this.style;
+            this.context.fillText(this.msg, this.x, this.y);
+            return this.context.restore();
+          }
+        };
+      },
+      put: function(msg, x, y, font, style) {
+        if (x == null) {
+          x = 25;
+        }
+        if (y == null) {
+          y = 25;
+        }
+        if (font == null) {
+          font = '25px serif';
+        }
+        if (style == null) {
+          style = 'black';
+        }
+        context.font = font;
+        context.fillStyle = style;
+        return context.fillText(msg, x, y);
+      },
+      center: function(msg, y, font, style) {
+        var dim, x;
+        if (y == null) {
+          y = 25;
+        }
+        if (font == null) {
+          font = '25px serif';
+        }
+        if (style == null) {
+          style = 'black';
+        }
+        context.font = font;
+        context.fillStyle = style;
+        dim = context.measureText(msg);
+        x = (canvas.width - dim.width) / 2;
+        return context.fillText(msg, x, y);
+      }
+    };
+  };
   canvasApp = function() {
-    var Label, animationLoop, background, bar, big_msg, canvas, centerLabel, context, dur_input, dur_span, exam, putLabel, running, scroll, setup, start_button, start_button_click, window_resize;
+    var animationLoop, background, bar, big_msg, canvas, context, dur_input, dur_span, exam, label, scroll, start_button, start_button_click, window_resize;
     if (Modernizr.canvas) {
       log("canvas is supported");
     } else {
@@ -96,21 +198,19 @@
     }
     canvas = document.getElementById("canvasOne");
     context = canvas.getContext("2d");
-    log("window dimensions: (" + window.innerWidth + ", " + window.innerHeight + ")");
     canvas.width = 0.98 * window.innerWidth;
     canvas.height = 400;
-    log("canvas dimensions: (" + canvas.width + ", " + canvas.height + ")");
+    label = raw_label(context, canvas);
     exam = null;
-    running = false;
     start_button_click = function() {
       if (isNaN(dur_input.value) || dur_input.value === "") {
         return alert("Please enter duration in minutes.");
       } else {
-        running = true;
-        exam = makeExam(parseInt(dur_input.value));
+        exam = makeExam(parseInt(dur_input.value, 10));
         bar.set_msg();
         start_button.style.visibility = "hidden";
-        return dur_span.style.visibility = "hidden";
+        dur_span.style.visibility = "hidden";
+        return setInterval(animationLoop, 1000 / frame_rate);
       }
     };
     start_button = document.getElementById("startbutton");
@@ -126,94 +226,6 @@
     background = function(color) {
       context.fillStyle = color;
       return context.fillRect(0, 0, canvas.width, canvas.height);
-    };
-    Label = (function() {
-      function Label(msg, x, y, style, font, visible) {
-        this.msg = msg != null ? msg : "<label>";
-        this.x = x != null ? x : 0;
-        this.y = y != null ? y : 0;
-        this.style = style != null ? style : 'black';
-        this.font = font != null ? font : '25px serif';
-        this.visible = visible != null ? visible : true;
-      }
-      Label.prototype.getWidthInPixels = function() {
-        var w;
-        context.save();
-        context.font = this.font;
-        context.fillStyle = this.style;
-        w = context.measureText(this.msg).width;
-        context.restore();
-        return w;
-      };
-      Label.prototype.lowercaseMwidth = function() {
-        var w;
-        context.save();
-        context.font = this.font;
-        context.fillStyle = this.style;
-        w = context.measureText("m").width;
-        context.restore();
-        return w;
-      };
-      Label.prototype.uppercaseMwidth = function() {
-        var w;
-        context.save();
-        context.font = this.font;
-        context.fillStyle = this.style;
-        w = context.measureText("M").width;
-        context.restore();
-        return w;
-      };
-      Label.prototype.getHeightInPixels = function() {
-        return this.lowercaseMwidth();
-      };
-      Label.prototype.render = function() {
-        if (!this.visible) {
-          return;
-        }
-        context.save();
-        context.font = this.font;
-        context.fillStyle = this.style;
-        context.fillText(this.msg, this.x, this.y);
-        return context.restore();
-      };
-      return Label;
-    })();
-    putLabel = function(msg, x, y, font, style) {
-      if (x == null) {
-        x = 25;
-      }
-      if (y == null) {
-        y = 25;
-      }
-      if (font == null) {
-        font = '25px serif';
-      }
-      if (style == null) {
-        style = 'black';
-      }
-      context.font = font;
-      context.fillStyle = style;
-      return context.fillText(msg, x, y);
-    };
-    centerLabel = function(msg, y, font, style) {
-      var dim, x;
-      if (y == null) {
-        y = 25;
-      }
-      if (font == null) {
-        font = '25px serif';
-      }
-      if (style == null) {
-        style = 'black';
-      }
-      context.font = font;
-      context.fillStyle = style;
-      dim = context.measureText(msg);
-      x = (canvas.width - dim.width) / 2;
-      return context.fillText(msg, x, y);
-    };
-    setup = function() {
-      return background(yellow);
     };
     big_msg = {
       msg: "",
@@ -235,8 +247,16 @@
       lineWidth: 1,
       color: "red",
       set_msg: function() {
-        this.start_msg = new Label("Start at " + (format(exam.time.start)), bar.x, bar.y - 10);
-        this.end_msg = new Label("End at " + (format(exam.time.end)), -1, bar.y - 10);
+        this.start_msg = label.make({
+          msg: "Start at " + (exam.time.start.format()),
+          x: bar.x,
+          y: bar.y - 10
+        });
+        this.end_msg = label.make({
+          msg: "End at " + (exam.time.end.format()),
+          x: -1,
+          y: bar.y - 10
+        });
         return this.end_msg.x = this.width - this.end_msg.getWidthInPixels() + 25;
       },
       start_msg: "<start_msg>",
@@ -254,7 +274,7 @@
       possible_states: ["finished", "descending", "ascending", "sitting", "hiding"],
       draw: function() {
         if (this.state !== "hiding") {
-          return centerLabel(this.msg, this.y);
+          return label.center(this.msg, this.y);
         }
       },
       update: function() {
@@ -314,12 +334,9 @@
       },
       messages: ["Put your name and SFU student ID # on each page.", "Raise your hand if you have a question or need to use the washroom.", "Read the questions carefully.", "Double-check your answers if you have time.", "Have mercy on your marker: write neatly!", "Pay attention to the details.", "Relax. Stay calm. Chill.", "Think!"]
     };
-    animationLoop = function() {
+    return animationLoop = function() {
       var millis_left, pct, pct_msg, pct_msg_width, w;
       background(yellow);
-      if (!running) {
-        return;
-      }
       if (exam.finished()) {
         bar.color = "green";
         big_msg.msg = "Exam is finished!";
@@ -338,8 +355,8 @@
         big_msg.msg = exam.remaining.minutes() + " minutes left";
         big_msg.color = "blue";
       }
-      centerLabel(big_msg.msg, big_msg.y, big_msg.font, big_msg.color);
-      centerLabel(currentTimeString(true), 210, "30px serif");
+      label.center(big_msg.msg, big_msg.y, big_msg.font, big_msg.color);
+      label.center(currentTimeString(true), 210, "30px serif");
       bar.start_msg.render();
       bar.end_msg.render();
       context.strokeStyle = bar.strokeStyle;
@@ -352,12 +369,10 @@
       pct = constrained_map(millis_left, exam.duration.millis, 0, 0, 100);
       pct_msg = Math.floor(pct) + "% done";
       pct_msg_width = context.measureText(pct_msg).width;
-      putLabel(pct_msg, constrain(w, bar.x, canvas.width - (pct_msg_width + 3)), bar.y + 75);
+      label.put(pct_msg, constrain(w, bar.x, canvas.width - (pct_msg_width + 3)), bar.y + 75);
       scroll.draw();
       return scroll.update();
     };
-    setup();
-    return setInterval(animationLoop, 1000 / frame_rate);
   };
   eventWindowLoaded = function() {
     return canvasApp();
